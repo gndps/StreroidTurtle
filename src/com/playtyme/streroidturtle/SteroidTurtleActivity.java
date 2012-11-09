@@ -7,14 +7,20 @@ package com.playtyme.streroidturtle;
 //import org.andengine.engine.Engine;
 import org.andengine.engine.options.EngineOptions;
 import org.andengine.entity.scene.Scene;
+import org.andengine.entity.scene.background.AutoParallaxBackground;
+import org.andengine.entity.scene.background.ParallaxBackground.ParallaxEntity;
 //import org.andengine.entity.scene.background.Background;
+import org.andengine.entity.sprite.AnimatedSprite;
 import org.andengine.entity.sprite.Sprite;
+import org.andengine.entity.util.FPSLogger;
 import org.andengine.opengl.texture.TextureOptions;
 import org.andengine.opengl.texture.atlas.bitmap.BitmapTextureAtlas;
 import org.andengine.opengl.texture.atlas.bitmap.BitmapTextureAtlasTextureRegionFactory;
 import org.andengine.opengl.texture.region.ITextureRegion;
 import org.andengine.opengl.texture.region.TextureRegionFactory;
+import org.andengine.opengl.texture.region.TiledTextureRegion;
 import org.andengine.opengl.util.GLState;
+import org.andengine.opengl.vbo.VertexBufferObjectManager;
 //import org.andengine.ui.IGameInterface.OnCreateResourcesCallback;
 //import org.andengine.ui.IGameInterface.OnCreateSceneCallback;
 //import org.andengine.ui.IGameInterface.OnPopulateSceneCallback;
@@ -55,14 +61,24 @@ public class SteroidTurtleActivity extends BaseGameActivity
 		OPTIONS	
 	}
     private SceneType currentScene = SceneType.SPLASH;
-    private ITextureRegion mgameBackground, moptionsMenu, mplayButton, maboutButton;
+   // private ITextureRegion mgameBackground;
+    private ITextureRegion moptionsMenu, mplayButton, maboutButton;
+    
+    private BitmapTextureAtlas mBitmapTextureAtlas;
+	private TiledTextureRegion mPlayerTextureRegion;
+	private TiledTextureRegion mEnemyTextureRegion;
+
+	private BitmapTextureAtlas mAutoParallaxBackgroundTexture;
+
+	private ITextureRegion mParallaxLayerBack;
+	private ITextureRegion mParallaxLayerMid;
+	private ITextureRegion mParallaxLayerFront;
 
 	@Override
 	public EngineOptions onCreateEngineOptions() {
 		final Camera camera = new Camera(0, 0, CAMERA_WIDTH, CAMERA_HEIGHT);
 		return new EngineOptions(true, ScreenOrientation.LANDSCAPE_FIXED, 
 		    new RatioResolutionPolicy(CAMERA_WIDTH, CAMERA_HEIGHT), camera);
-		// TODO Auto-generated method stub
 	}
 
 	@Override
@@ -125,15 +141,10 @@ public class SteroidTurtleActivity extends BaseGameActivity
 	
 	public void loadResources() 
 	{
-		// Load your game resources here!
+		// TODO Load resources
 		try {
 		    // 1 - Set up bitmap textures
-		    ITexture gameBackground = new BitmapTexture(this.getTextureManager(), new IInputStreamOpener() {
-		        @Override
-		        public InputStream open() throws IOException {
-		            return getAssets().open("gfx/background.png");
-		        }
-		    });
+		    
 		    ITexture optionsMenu = new BitmapTexture(this.getTextureManager(), new IInputStreamOpener() {
 		        @Override
 		        public InputStream open() throws IOException {
@@ -153,14 +164,27 @@ public class SteroidTurtleActivity extends BaseGameActivity
 		        }
 		    });
 		    // 2 - Load bitmap textures into VRAM
-		    gameBackground.load();
+		//    gameBackground.load();
 		    optionsMenu.load();
 		    playButton.load();
 		    aboutButton.load();
-		    this.mgameBackground = TextureRegionFactory.extractFromTexture(gameBackground);
+		  //  this.mgameBackground = TextureRegionFactory.extractFromTexture(gameBackground);
 		    this.moptionsMenu = TextureRegionFactory.extractFromTexture(optionsMenu);
 		    this.maboutButton = TextureRegionFactory.extractFromTexture(aboutButton);
 		    this.mplayButton = TextureRegionFactory.extractFromTexture(playButton);
+		
+		    BitmapTextureAtlasTextureRegionFactory.setAssetBasePath("gfx/");
+			
+			this.mBitmapTextureAtlas = new BitmapTextureAtlas(this.getTextureManager(), 256, 128, TextureOptions.BILINEAR);
+			this.mPlayerTextureRegion = BitmapTextureAtlasTextureRegionFactory.createTiledFromAsset(this.mBitmapTextureAtlas, this, "player.png", 0, 0, 3, 4);
+			this.mEnemyTextureRegion = BitmapTextureAtlasTextureRegionFactory.createTiledFromAsset(this.mBitmapTextureAtlas, this, "enemy.png", 73, 0, 3, 4);
+			this.mBitmapTextureAtlas.load();
+
+			this.mAutoParallaxBackgroundTexture = new BitmapTextureAtlas(this.getTextureManager(), 1024, 1024);
+			this.mParallaxLayerFront = BitmapTextureAtlasTextureRegionFactory.createFromAsset(this.mAutoParallaxBackgroundTexture, this, "parallax_background_layer_front.png", 0, 0);
+			this.mParallaxLayerBack = BitmapTextureAtlasTextureRegionFactory.createFromAsset(this.mAutoParallaxBackgroundTexture, this, "parallax_background_layer_back.png", 0, 188);
+			this.mParallaxLayerMid = BitmapTextureAtlasTextureRegionFactory.createFromAsset(this.mAutoParallaxBackgroundTexture, this, "parallax_background_layer_mid.png", 0, 669);
+			this.mAutoParallaxBackgroundTexture.load();
 		} catch (IOException e) {
 		    Debug.e(e);
 		}
@@ -169,7 +193,7 @@ public class SteroidTurtleActivity extends BaseGameActivity
 	
 	private void loadScenes()
 	{
-		// load your game here, you scenes
+		// TODO Load Scenes
 		optionsScene = new Scene();
 		Sprite optionsSprite = new Sprite(0, 0, this.moptionsMenu, getVertexBufferObjectManager());
 		Sprite playButtonSprite = new Sprite(340, 120, this.mplayButton, getVertexBufferObjectManager()){
@@ -189,15 +213,51 @@ public class SteroidTurtleActivity extends BaseGameActivity
 	//===============================================
 	//	ADD ON TOUCH EVENT FOR PLAY AND ABOUT BUTTON 
 	//===============================================
+	
 		
 		Sprite aboutButtonSprite = new Sprite(340, 180, this.maboutButton, getVertexBufferObjectManager());
-		Sprite gameBackgroundSprite = new Sprite(0, 0, this.mgameBackground, getVertexBufferObjectManager());
+	//	Sprite gameBackgroundSprite = new Sprite(0, 0, this.mgameBackground, getVertexBufferObjectManager());
 		
 		optionsScene.attachChild(optionsSprite);
 		optionsScene.attachChild(playButtonSprite);
 		optionsScene.attachChild(aboutButtonSprite);
 		mainScene = new Scene();
-		mainScene.attachChild(gameBackgroundSprite);
+		/////////////////////////////////////////////
+		//adding auto parallax here
+		/////////////////////////////////////////////
+		this.mEngine.registerUpdateHandler(new FPSLogger());
+
+	//	final Scene scene = new Scene();
+		final AutoParallaxBackground autoParallaxBackground = new AutoParallaxBackground(0, 0, 0, 5);
+		final VertexBufferObjectManager vertexBufferObjectManager = this.getVertexBufferObjectManager();
+		autoParallaxBackground.attachParallaxEntity(new ParallaxEntity(0.0f, new Sprite(0, CAMERA_HEIGHT - this.mParallaxLayerBack.getHeight(), this.mParallaxLayerBack, vertexBufferObjectManager)));
+		autoParallaxBackground.attachParallaxEntity(new ParallaxEntity(-5.0f, new Sprite(0, 80, this.mParallaxLayerMid, vertexBufferObjectManager)));
+		autoParallaxBackground.attachParallaxEntity(new ParallaxEntity(-10.0f, new Sprite(0, CAMERA_HEIGHT - this.mParallaxLayerFront.getHeight(), this.mParallaxLayerFront, vertexBufferObjectManager)));
+		
+
+		/* Calculate the coordinates for the face, so its centered on the camera. */
+		final float playerX = (CAMERA_WIDTH - this.mPlayerTextureRegion.getWidth()) / 2;
+		final float playerY = CAMERA_HEIGHT - this.mPlayerTextureRegion.getHeight() - 5;
+
+		/* Create two sprits and add it to the scene. */
+		final AnimatedSprite player = new AnimatedSprite(playerX, playerY, this.mPlayerTextureRegion, vertexBufferObjectManager);
+		player.setScaleCenterY(this.mPlayerTextureRegion.getHeight());
+		player.setScale(2);
+		player.animate(new long[]{200, 200, 200}, 3, 5, true);
+
+		final AnimatedSprite enemy = new AnimatedSprite(playerX - 80, playerY, this.mEnemyTextureRegion, vertexBufferObjectManager);
+		enemy.setScaleCenterY(this.mEnemyTextureRegion.getHeight());
+		enemy.setScale(2);
+		enemy.animate(new long[]{200, 200, 200}, 3, 5, true);
+
+		
+		
+		/////parallax end/////
+		
+		//mainScene.attachChild(gameBackgroundSprite);
+		mainScene.setBackground(autoParallaxBackground);
+		mainScene.attachChild(player);
+		mainScene.attachChild(enemy);
 		optionsScene.registerTouchArea(playButtonSprite);
 		optionsScene.registerTouchArea(aboutButtonSprite);
 		
