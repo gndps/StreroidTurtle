@@ -31,13 +31,23 @@ import org.andengine.engine.handler.timer.ITimerCallback;
 import org.andengine.engine.handler.timer.TimerHandler;
 import org.andengine.engine.options.ScreenOrientation;
 import org.andengine.engine.options.resolutionpolicy.RatioResolutionPolicy;
+import org.andengine.extension.physics.box2d.PhysicsFactory;
+import org.andengine.extension.physics.box2d.PhysicsWorld;
+import org.andengine.extension.physics.box2d.util.constants.PhysicsConstants;
 import org.andengine.input.touch.TouchEvent;
 
+import android.hardware.SensorManager;
 import android.view.KeyEvent;
+import android.widget.Toast;
+
 import org.andengine.opengl.texture.ITexture;
 import org.andengine.opengl.texture.bitmap.BitmapTexture;
 import org.andengine.util.adt.io.in.IInputStreamOpener;
 import org.andengine.util.debug.Debug;
+
+import com.badlogic.gdx.math.Vector2;
+import com.badlogic.gdx.physics.box2d.BodyDef.BodyType;
+import com.badlogic.gdx.physics.box2d.FixtureDef;
  
 import java.io.IOException;
 import java.io.InputStream;
@@ -58,21 +68,33 @@ public class SteroidTurtleActivity extends BaseGameActivity
 	{
 		SPLASH,
 		MAIN,
-		OPTIONS	
+		OPTIONS,
 	}
+   
     private SceneType currentScene = SceneType.SPLASH;
    // private ITextureRegion mgameBackground;
     private ITextureRegion moptionsMenu, mplayButton, maboutButton;
     
     private BitmapTextureAtlas mBitmapTextureAtlas;
 	private TiledTextureRegion mPlayerTextureRegion;
-	private TiledTextureRegion mEnemyTextureRegion;
+	//private TiledTextureRegion mEnemyTextureRegion;
 
 	private BitmapTextureAtlas mAutoParallaxBackgroundTexture;
 
 	private ITextureRegion mParallaxLayerBack;
 	private ITextureRegion mParallaxLayerMid;
 	private ITextureRegion mParallaxLayerFront;
+	private PhysicsWorld physicsWorld;
+
+	//Method for generating Toast messages as they need to run on UI thread
+	    public void gameToast(final String msg) {
+	    this.runOnUiThread(new Runnable() {
+	        @Override
+	        public void run() {
+	           Toast.makeText(SteroidTurtleActivity.this, msg, Toast.LENGTH_SHORT).show();
+	        }
+	    });
+	}
 
 	@Override
 	public EngineOptions onCreateEngineOptions() {
@@ -177,7 +199,7 @@ public class SteroidTurtleActivity extends BaseGameActivity
 			
 			this.mBitmapTextureAtlas = new BitmapTextureAtlas(this.getTextureManager(), 256, 128, TextureOptions.BILINEAR);
 			this.mPlayerTextureRegion = BitmapTextureAtlasTextureRegionFactory.createTiledFromAsset(this.mBitmapTextureAtlas, this, "player.png", 0, 0, 3, 4);
-			this.mEnemyTextureRegion = BitmapTextureAtlasTextureRegionFactory.createTiledFromAsset(this.mBitmapTextureAtlas, this, "enemy.png", 73, 0, 3, 4);
+		//	this.mEnemyTextureRegion = BitmapTextureAtlasTextureRegionFactory.createTiledFromAsset(this.mBitmapTextureAtlas, this, "enemy.png", 73, 0, 3, 4);
 			this.mBitmapTextureAtlas.load();
 
 			this.mAutoParallaxBackgroundTexture = new BitmapTextureAtlas(this.getTextureManager(), 1024, 1024);
@@ -193,7 +215,18 @@ public class SteroidTurtleActivity extends BaseGameActivity
 	
 	private void loadScenes()
 	{
-		// TODO Load Scenes
+		//PHYSICS WORLD
+	
+		 this.physicsWorld = new PhysicsWorld(new Vector2(0, SensorManager.GRAVITY_EARTH), false);
+		 mainScene.registerUpdateHandler(physicsWorld);
+
+		 /* TODO	//CREATING GROUND BODY https://sites.google.com/site/matimdevelopment/creating-bodies
+		 final FixtureDef objectFixtureDef = PhysicsFactory.createFixtureDef(1, 0.5f, 0.5f);
+		    PhysicsFactory.createBoxBody(physicsWorld, player, BodyType.StaticBody, objectFixtureDef);
+		 */	 
+		
+		 
+		 // TODO Load Scenes
 		optionsScene = new Scene();
 		Sprite optionsSprite = new Sprite(0, 0, this.moptionsMenu, getVertexBufferObjectManager());
 		Sprite playButtonSprite = new Sprite(340, 120, this.mplayButton, getVertexBufferObjectManager()){
@@ -204,6 +237,7 @@ public class SteroidTurtleActivity extends BaseGameActivity
 		      {
 		    	  mEngine.setScene(mainScene);
 		    	  currentScene=SceneType.MAIN;
+		    	
 		     //Insert Code Here
 	         return true;
 		      }
@@ -215,13 +249,26 @@ public class SteroidTurtleActivity extends BaseGameActivity
 	//===============================================
 	
 		
-		Sprite aboutButtonSprite = new Sprite(340, 180, this.maboutButton, getVertexBufferObjectManager());
+		Sprite aboutButtonSprite = new Sprite(340, 180, this.maboutButton, getVertexBufferObjectManager()){
+			
+		      
+			@Override
+		      public boolean onAreaTouched(final TouchEvent pSceneTouchEvent, final float pTouchAreaLocalX, final float pTouchAreaLocalY) 
+		      {
+				String msg= "Developed By PlayTyme™";
+				gameToast(msg);
+
+		     //Insert Code Here
+	         return true;
+		      }
+		};
 	//	Sprite gameBackgroundSprite = new Sprite(0, 0, this.mgameBackground, getVertexBufferObjectManager());
 		
 		optionsScene.attachChild(optionsSprite);
 		optionsScene.attachChild(playButtonSprite);
 		optionsScene.attachChild(aboutButtonSprite);
 		mainScene = new Scene();
+		
 		/////////////////////////////////////////////
 		//adding auto parallax here
 		/////////////////////////////////////////////
@@ -236,19 +283,19 @@ public class SteroidTurtleActivity extends BaseGameActivity
 		
 
 		/* Calculate the coordinates for the face, so its centered on the camera. */
-		final float playerX = (CAMERA_WIDTH - this.mPlayerTextureRegion.getWidth()) / 2;
+		final float playerX = CAMERA_WIDTH/5;
 		final float playerY = CAMERA_HEIGHT - this.mPlayerTextureRegion.getHeight() - 5;
 
 		/* Create two sprits and add it to the scene. */
 		final AnimatedSprite player = new AnimatedSprite(playerX, playerY, this.mPlayerTextureRegion, vertexBufferObjectManager);
 		player.setScaleCenterY(this.mPlayerTextureRegion.getHeight());
 		player.setScale(2);
-		player.animate(new long[]{200, 200, 200}, 3, 5, true);
+		player.animate(new long[]{100, 100, 100}, 3, 5, true);
 
-		final AnimatedSprite enemy = new AnimatedSprite(playerX - 80, playerY, this.mEnemyTextureRegion, vertexBufferObjectManager);
-		enemy.setScaleCenterY(this.mEnemyTextureRegion.getHeight());
-		enemy.setScale(2);
-		enemy.animate(new long[]{200, 200, 200}, 3, 5, true);
+	//	final AnimatedSprite enemy = new AnimatedSprite(playerX - 80, playerY, this.mEnemyTextureRegion, vertexBufferObjectManager);
+	//	enemy.setScaleCenterY(this.mEnemyTextureRegion.getHeight());
+	//	enemy.setScale(2);
+	//	enemy.animate(new long[]{200, 200, 200}, 3, 5, true);
 
 		
 		
@@ -257,9 +304,10 @@ public class SteroidTurtleActivity extends BaseGameActivity
 		//mainScene.attachChild(gameBackgroundSprite);
 		mainScene.setBackground(autoParallaxBackground);
 		mainScene.attachChild(player);
-		mainScene.attachChild(enemy);
+	//	mainScene.attachChild(enemy);
 		optionsScene.registerTouchArea(playButtonSprite);
 		optionsScene.registerTouchArea(aboutButtonSprite);
+		
 		
 	}
 	
@@ -285,3 +333,4 @@ public class SteroidTurtleActivity extends BaseGameActivity
     	splashScene.attachChild(splash);
 	}
 }
+
