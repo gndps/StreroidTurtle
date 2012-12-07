@@ -5,61 +5,53 @@ package com.playtyme.streroidturtle;
 //import matim.development.SplashTemplate.SceneType;
 
 //import org.andengine.engine.Engine;
+import java.io.IOException;
+import java.io.InputStream;
+
+import org.andengine.engine.camera.Camera;
+import org.andengine.engine.camera.hud.HUD;
+import org.andengine.engine.handler.timer.ITimerCallback;
+import org.andengine.engine.handler.timer.TimerHandler;
 import org.andengine.engine.options.EngineOptions;
+import org.andengine.engine.options.ScreenOrientation;
+import org.andengine.engine.options.resolutionpolicy.RatioResolutionPolicy;
 import org.andengine.entity.scene.Scene;
 import org.andengine.entity.scene.background.AutoParallaxBackground;
 import org.andengine.entity.scene.background.ParallaxBackground.ParallaxEntity;
-//import org.andengine.entity.scene.background.Background;
 import org.andengine.entity.sprite.AnimatedSprite;
 import org.andengine.entity.sprite.Sprite;
 import org.andengine.entity.util.FPSLogger;
+import org.andengine.extension.physics.box2d.PhysicsWorld;
+import org.andengine.input.touch.TouchEvent;
+import org.andengine.opengl.texture.ITexture;
 import org.andengine.opengl.texture.TextureOptions;
 import org.andengine.opengl.texture.atlas.bitmap.BitmapTextureAtlas;
 import org.andengine.opengl.texture.atlas.bitmap.BitmapTextureAtlasTextureRegionFactory;
+import org.andengine.opengl.texture.bitmap.BitmapTexture;
 import org.andengine.opengl.texture.region.ITextureRegion;
 import org.andengine.opengl.texture.region.TextureRegionFactory;
 import org.andengine.opengl.texture.region.TiledTextureRegion;
 import org.andengine.opengl.util.GLState;
 import org.andengine.opengl.vbo.VertexBufferObjectManager;
-//import org.andengine.ui.IGameInterface.OnCreateResourcesCallback;
-//import org.andengine.ui.IGameInterface.OnCreateSceneCallback;
-//import org.andengine.ui.IGameInterface.OnPopulateSceneCallback;
 import org.andengine.ui.activity.BaseGameActivity;
-//import org.andengine.ui.activity.SimpleBaseGameActivity;
-import org.andengine.engine.camera.Camera;
-import org.andengine.engine.handler.timer.ITimerCallback;
-import org.andengine.engine.handler.timer.TimerHandler;
-import org.andengine.engine.options.ScreenOrientation;
-import org.andengine.engine.options.resolutionpolicy.RatioResolutionPolicy;
-import org.andengine.extension.physics.box2d.PhysicsFactory;
-import org.andengine.extension.physics.box2d.PhysicsWorld;
-import org.andengine.extension.physics.box2d.util.constants.PhysicsConstants;
-import org.andengine.input.touch.TouchEvent;
+import org.andengine.util.adt.io.in.IInputStreamOpener;
+import org.andengine.util.debug.Debug;
 
 import android.hardware.SensorManager;
 import android.view.KeyEvent;
 import android.widget.Toast;
 
-import org.andengine.opengl.texture.ITexture;
-import org.andengine.opengl.texture.bitmap.BitmapTexture;
-import org.andengine.util.adt.io.in.IInputStreamOpener;
-import org.andengine.util.debug.Debug;
-
 import com.badlogic.gdx.math.Vector2;
-import com.badlogic.gdx.physics.box2d.BodyDef.BodyType;
-import com.badlogic.gdx.physics.box2d.FixtureDef;
- 
-import java.io.IOException;
-import java.io.InputStream;
 
 public class SteroidTurtleActivity extends BaseGameActivity
 {
 	private static int CAMERA_WIDTH = 480;
 	private static int CAMERA_HEIGHT = 320;
-	//private Camera camera;
+	private Camera camera;
 	private Scene splashScene;
 	private Scene mainScene;
 	private Scene optionsScene;
+	private HUD gameHUD;
 	
     private BitmapTextureAtlas splashTextureAtlas;
     private ITextureRegion splashTextureRegion;
@@ -84,6 +76,10 @@ public class SteroidTurtleActivity extends BaseGameActivity
 	private ITextureRegion mParallaxLayerBack;
 	private ITextureRegion mParallaxLayerMid;
 	private ITextureRegion mParallaxLayerFront;
+	private ITextureRegion jumpButtonImage;
+	private ITextureRegion rollButtonImage;
+	private ITextureRegion consumeButtonImage;
+	private ITextureRegion antidoteButtonImage;
 	private PhysicsWorld physicsWorld;
 
 	//Method for generating Toast messages as they need to run on UI thread
@@ -91,7 +87,7 @@ public class SteroidTurtleActivity extends BaseGameActivity
 	    this.runOnUiThread(new Runnable() {
 	        @Override
 	        public void run() {
-	           Toast.makeText(SteroidTurtleActivity.this, msg, Toast.LENGTH_SHORT).show();
+	        	Toast.makeText(SteroidTurtleActivity.this, msg, Toast.LENGTH_SHORT).show();
 	        }
 	    });
 	}
@@ -155,6 +151,7 @@ public class SteroidTurtleActivity extends BaseGameActivity
 	    		case MAIN:
 	    			mEngine.setScene(optionsScene);
 	    			currentScene = SceneType.OPTIONS;
+	    	//		gameHUD.detachSelf();//------------------>>>HUD DETACHED
 	    			break;
 	    	}
 	    }
@@ -185,16 +182,47 @@ public class SteroidTurtleActivity extends BaseGameActivity
 		            return getAssets().open("gfx/about_button.png");
 		        }
 		    });
+		    ITexture jumpButton = new BitmapTexture(this.getTextureManager(), new IInputStreamOpener() {
+		        @Override
+		        public InputStream open() throws IOException {
+		            return getAssets().open("gfx/jump.png");
+		        }
+		    });
+		    ITexture rollButton = new BitmapTexture(this.getTextureManager(), new IInputStreamOpener() {
+		        @Override
+		        public InputStream open() throws IOException {
+		            return getAssets().open("gfx/roll.png");
+		        }
+		    });
+		    ITexture consumeButton = new BitmapTexture(this.getTextureManager(), new IInputStreamOpener() {
+		        @Override
+		        public InputStream open() throws IOException {
+		            return getAssets().open("gfx/consume.png");
+		        }
+		    });
+		    ITexture antidoteButton = new BitmapTexture(this.getTextureManager(), new IInputStreamOpener() {
+		        @Override
+		        public InputStream open() throws IOException {
+		            return getAssets().open("gfx/antidote.png");
+		        }
+		    });
 		    // 2 - Load bitmap textures into VRAM
 		//    gameBackground.load();
 		    optionsMenu.load();
 		    playButton.load();
 		    aboutButton.load();
+		    jumpButton.load();
+		    rollButton.load();
+		    antidoteButton.load();
+		    consumeButton.load();
 		  //  this.mgameBackground = TextureRegionFactory.extractFromTexture(gameBackground);
 		    this.moptionsMenu = TextureRegionFactory.extractFromTexture(optionsMenu);
 		    this.maboutButton = TextureRegionFactory.extractFromTexture(aboutButton);
 		    this.mplayButton = TextureRegionFactory.extractFromTexture(playButton);
-		
+		    this.rollButtonImage = TextureRegionFactory.extractFromTexture(rollButton);
+		    this.jumpButtonImage = TextureRegionFactory.extractFromTexture(jumpButton);
+		    this.consumeButtonImage = TextureRegionFactory.extractFromTexture(consumeButton);
+		    this.antidoteButtonImage = TextureRegionFactory.extractFromTexture(antidoteButton);
 		    BitmapTextureAtlasTextureRegionFactory.setAssetBasePath("gfx/");
 			
 			this.mBitmapTextureAtlas = new BitmapTextureAtlas(this.getTextureManager(), 256, 128, TextureOptions.BILINEAR);
@@ -215,17 +243,27 @@ public class SteroidTurtleActivity extends BaseGameActivity
 	
 	private void loadScenes()
 	{
-		//PHYSICS WORLD
+		/*//PHYSICS WORLD
 	
 		 this.physicsWorld = new PhysicsWorld(new Vector2(0, SensorManager.GRAVITY_EARTH), false);
 		 mainScene.registerUpdateHandler(physicsWorld);
-
-		 /* TODO	//CREATING GROUND BODY https://sites.google.com/site/matimdevelopment/creating-bodies
-		 final FixtureDef objectFixtureDef = PhysicsFactory.createFixtureDef(1, 0.5f, 0.5f);
-		    PhysicsFactory.createBoxBody(physicsWorld, player, BodyType.StaticBody, objectFixtureDef);
-		 */	 
-		
 		 
+		 
+
+		 //attach score on hud
+		
+		  TODO	//CREATING GROUND BODY https://sites.google.com/site/matimdevelopment/creating-bodies
+			TRY DOING WITHOUT BODIES BUT ONLY WITH SPRITES AND JUMP FEATURE ON MY OWN
+		 //ground body
+		 final FixtureDef objectFixtureDefGround = PhysicsFactory.createFixtureDef(1, 0.5f, 0.5f);
+		 PhysicsFactory.createBoxBody(physicsWorld,new Float(CAMERA_WIDTH/2),new Float(5*CAMERA_HEIGHT/6),new Float(CAMERA_WIDTH/2),new Float(CAMERA_HEIGHT/6) , BodyType.StaticBody, objectFixtureDefGround).setUserData("groundBody");
+		 //player body
+		 final FixtureDef objectFixtureDefPlayer = PhysicsFactory.createFixtureDef(1, 0.5f, 0.5f);
+		 Body playerBody= new Body(PhysicsFactory.createBoxBody(physicsWorld,new Float(3*CAMERA_WIDTH/10),new Float(5*CAMERA_HEIGHT/6 + 16),new Float(10),new Float(15) , BodyType.KinematicBody, objectFixtureDefPlayer);)
+		 
+		 //physics connector(connect player body and player sprite)
+		 physicsWorld.registerPhysicsConnector(new PhysicsConnector);
+		  */
 		 // TODO Load Scenes
 		optionsScene = new Scene();
 		Sprite optionsSprite = new Sprite(0, 0, this.moptionsMenu, getVertexBufferObjectManager());
@@ -237,18 +275,63 @@ public class SteroidTurtleActivity extends BaseGameActivity
 		      {
 		    	  mEngine.setScene(mainScene);
 		    	  currentScene=SceneType.MAIN;
+		    //	  camera.setHUD(gameHUD);//-------------------->>>>> set HUD
 		    	
 		     //Insert Code Here
 	         return true;
 		      }
 		};
+		Sprite jumpButtonSprite = new Sprite(360,235, this.jumpButtonImage, getVertexBufferObjectManager()){
+			
+		      
+			@Override
+		      public boolean onAreaTouched(final TouchEvent pSceneTouchEvent, final float pTouchAreaLocalX, final float pTouchAreaLocalY) 
+		      {
+		    	  //ADD JUMP FUNCTIONALITY !!!!!!!!!!
+		    
+	         return true;
+		      }
+		};
+		Sprite rollButtonSprite = new Sprite(0,235, this.rollButtonImage, getVertexBufferObjectManager()){
+			
+		      
+			@Override
+		      public boolean onAreaTouched(final TouchEvent pSceneTouchEvent, final float pTouchAreaLocalX, final float pTouchAreaLocalY) 
+		      {
+		    	  //ADD ROLL FUNCTIONALITY !!!!!!!!!!
+		    
+	         return true;
+		      }
+		};
+		Sprite consumeButtonSprite = new Sprite(120,235, this.consumeButtonImage, getVertexBufferObjectManager()){
+			
+		      
+			@Override
+		      public boolean onAreaTouched(final TouchEvent pSceneTouchEvent, final float pTouchAreaLocalX, final float pTouchAreaLocalY) 
+		      {
+		    	  //ADD CONSUME FUNCTIONALITY !!!!!!!!!!
+		    
+	         return true;
+		      }
+		};
+		Sprite antidoteButtonSprite = new Sprite(240,235, this.antidoteButtonImage, getVertexBufferObjectManager()){
+			
+		      
+			@Override
+		      public boolean onAreaTouched(final TouchEvent pSceneTouchEvent, final float pTouchAreaLocalX, final float pTouchAreaLocalY) 
+		      {
+		    	  //ADD antidote FUNCTIONALITY !!!!!!!!!!
+		    
+	         return true;
+		      }
+		};
+		
 
 	
 	//===============================================
 	//	ADD ON TOUCH EVENT FOR PLAY AND ABOUT BUTTON 
 	//===============================================
 	
-		
 		Sprite aboutButtonSprite = new Sprite(340, 180, this.maboutButton, getVertexBufferObjectManager()){
 			
 		      
@@ -268,6 +351,7 @@ public class SteroidTurtleActivity extends BaseGameActivity
 		optionsScene.attachChild(playButtonSprite);
 		optionsScene.attachChild(aboutButtonSprite);
 		mainScene = new Scene();
+		gameHUD = new HUD();
 		
 		/////////////////////////////////////////////
 		//adding auto parallax here
@@ -286,7 +370,7 @@ public class SteroidTurtleActivity extends BaseGameActivity
 		final float playerX = CAMERA_WIDTH/5;
 		final float playerY = CAMERA_HEIGHT - this.mPlayerTextureRegion.getHeight() - 5;
 
-		/* Create two sprits and add it to the scene. */
+		/* Create two sprites and add it to the scene. */
 		final AnimatedSprite player = new AnimatedSprite(playerX, playerY, this.mPlayerTextureRegion, vertexBufferObjectManager);
 		player.setScaleCenterY(this.mPlayerTextureRegion.getHeight());
 		player.setScale(2);
@@ -300,10 +384,18 @@ public class SteroidTurtleActivity extends BaseGameActivity
 		
 		
 		/////parallax end/////
+		mainScene.attachChild(rollButtonSprite);
+		mainScene.attachChild(jumpButtonSprite);
+		mainScene.attachChild(consumeButtonSprite);
+		mainScene.attachChild(antidoteButtonSprite);
 		
 		//mainScene.attachChild(gameBackgroundSprite);
+		
 		mainScene.setBackground(autoParallaxBackground);
 		mainScene.attachChild(player);
+		//TODO blah blah camera set HUD
+		
+	
 	//	mainScene.attachChild(enemy);
 		optionsScene.registerTouchArea(playButtonSprite);
 		optionsScene.registerTouchArea(aboutButtonSprite);
