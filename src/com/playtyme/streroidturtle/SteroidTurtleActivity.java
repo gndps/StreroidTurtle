@@ -9,19 +9,24 @@ import java.io.IOException;
 import java.io.InputStream;
 
 import org.andengine.engine.camera.Camera;
-import org.andengine.engine.camera.hud.HUD;
 import org.andengine.engine.handler.timer.ITimerCallback;
 import org.andengine.engine.handler.timer.TimerHandler;
 import org.andengine.engine.options.EngineOptions;
 import org.andengine.engine.options.ScreenOrientation;
 import org.andengine.engine.options.resolutionpolicy.RatioResolutionPolicy;
+import org.andengine.entity.primitive.Rectangle;
 import org.andengine.entity.scene.Scene;
 import org.andengine.entity.scene.background.AutoParallaxBackground;
 import org.andengine.entity.scene.background.ParallaxBackground.ParallaxEntity;
 import org.andengine.entity.sprite.AnimatedSprite;
 import org.andengine.entity.sprite.Sprite;
 import org.andengine.entity.util.FPSLogger;
+import org.andengine.extension.physics.box2d.PhysicsConnector;
+import org.andengine.extension.physics.box2d.PhysicsFactory;
 import org.andengine.extension.physics.box2d.PhysicsWorld;
+import org.andengine.extension.physics.box2d.util.Vector2Pool;
+import org.andengine.input.sensor.acceleration.AccelerationData;
+import org.andengine.input.sensor.acceleration.IAccelerationListener;
 import org.andengine.input.touch.TouchEvent;
 import org.andengine.opengl.texture.ITexture;
 import org.andengine.opengl.texture.TextureOptions;
@@ -42,18 +47,18 @@ import android.view.KeyEvent;
 import android.widget.Toast;
 
 import com.badlogic.gdx.math.Vector2;
+import com.badlogic.gdx.physics.box2d.Body;
+import com.badlogic.gdx.physics.box2d.FixtureDef;
+import com.badlogic.gdx.physics.box2d.BodyDef.BodyType;
 
 public class SteroidTurtleActivity extends BaseGameActivity
 {
 	private static int CAMERA_WIDTH = 480;
 	private static int CAMERA_HEIGHT = 320;
-	private Camera camera;
 	private Scene splashScene;
 	private Scene mainScene;
 	private Scene optionsScene;
-	private HUD gameHUD;
-	
-    private BitmapTextureAtlas splashTextureAtlas;
+	private BitmapTextureAtlas splashTextureAtlas;
     private ITextureRegion splashTextureRegion;
     private Sprite splash;
     private enum SceneType
@@ -62,17 +67,12 @@ public class SteroidTurtleActivity extends BaseGameActivity
 		MAIN,
 		OPTIONS,
 	}
-   
     private SceneType currentScene = SceneType.SPLASH;
-   // private ITextureRegion mgameBackground;
     private ITextureRegion moptionsMenu, mplayButton, maboutButton;
-    
     private BitmapTextureAtlas mBitmapTextureAtlas;
 	private TiledTextureRegion mPlayerTextureRegion;
 	//private TiledTextureRegion mEnemyTextureRegion;
-
 	private BitmapTextureAtlas mAutoParallaxBackgroundTexture;
-
 	private ITextureRegion mParallaxLayerBack;
 	private ITextureRegion mParallaxLayerMid;
 	private ITextureRegion mParallaxLayerFront;
@@ -80,10 +80,12 @@ public class SteroidTurtleActivity extends BaseGameActivity
 	private ITextureRegion rollButtonImage;
 	private ITextureRegion consumeButtonImage;
 	private ITextureRegion antidoteButtonImage;
-	private PhysicsWorld physicsWorld;
+	private PhysicsWorld mPhysicsWorld;
+	private static final FixtureDef FIXTURE_DEF = PhysicsFactory.createFixtureDef(1, 0.5f, 0.5f);
 
 	//Method for generating Toast messages as they need to run on UI thread
-	    public void gameToast(final String msg) {
+	
+	public void gameToast(final String msg) {
 	    this.runOnUiThread(new Runnable() {
 	        @Override
 	        public void run() {
@@ -243,28 +245,21 @@ public class SteroidTurtleActivity extends BaseGameActivity
 	
 	private void loadScenes()
 	{
-		/*//PHYSICS WORLD
-	
-		 this.physicsWorld = new PhysicsWorld(new Vector2(0, SensorManager.GRAVITY_EARTH), false);
-		 mainScene.registerUpdateHandler(physicsWorld);
-		 
-		 
+		//PHYSICS WORLD
+		VertexBufferObjectManager vertexBufferObjectManager= this.getVertexBufferObjectManager();
+		try {
 
-		 //attach score on hud
+			this.mPhysicsWorld = new PhysicsWorld(new Vector2(0, SensorManager.GRAVITY_EARTH), false);
+			//final Vector2 gravity = Vector2Pool.obtain(0,10);
+			//this.mPhysicsWorld.setGravity(gravity);
+			} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+			//gameToast("Exception thrown in load scenes");
+			
+		}
 		
-		  TODO	//CREATING GROUND BODY https://sites.google.com/site/matimdevelopment/creating-bodies
-			TRY DOING WITHOUT BODIES BUT ONLY WITH SPRITES AND JUMP FEATURE ON MY OWN
-		 //ground body
-		 final FixtureDef objectFixtureDefGround = PhysicsFactory.createFixtureDef(1, 0.5f, 0.5f);
-		 PhysicsFactory.createBoxBody(physicsWorld,new Float(CAMERA_WIDTH/2),new Float(5*CAMERA_HEIGHT/6),new Float(CAMERA_WIDTH/2),new Float(CAMERA_HEIGHT/6) , BodyType.StaticBody, objectFixtureDefGround).setUserData("groundBody");
-		 //player body
-		 final FixtureDef objectFixtureDefPlayer = PhysicsFactory.createFixtureDef(1, 0.5f, 0.5f);
-		 Body playerBody= new Body(PhysicsFactory.createBoxBody(physicsWorld,new Float(3*CAMERA_WIDTH/10),new Float(5*CAMERA_HEIGHT/6 + 16),new Float(10),new Float(15) , BodyType.KinematicBody, objectFixtureDefPlayer);)
-		 
-		 //physics connector(connect player body and player sprite)
-		 physicsWorld.registerPhysicsConnector(new PhysicsConnector);
-		  */
-		 // TODO Load Scenes
+		// TODO Load Scenes
 		optionsScene = new Scene();
 		Sprite optionsSprite = new Sprite(0, 0, this.moptionsMenu, getVertexBufferObjectManager());
 		Sprite playButtonSprite = new Sprite(340, 120, this.mplayButton, getVertexBufferObjectManager()){
@@ -288,6 +283,7 @@ public class SteroidTurtleActivity extends BaseGameActivity
 		      public boolean onAreaTouched(final TouchEvent pSceneTouchEvent, final float pTouchAreaLocalX, final float pTouchAreaLocalY) 
 		      {
 		    	  //ADD JUMP FUNCTIONALITY !!!!!!!!!!
+				
 		    
 	         return true;
 		      }
@@ -340,8 +336,6 @@ public class SteroidTurtleActivity extends BaseGameActivity
 		      {
 				String msg= "Developed By PlayTyme™";
 				gameToast(msg);
-
-		     //Insert Code Here
 	         return true;
 		      }
 		};
@@ -351,31 +345,29 @@ public class SteroidTurtleActivity extends BaseGameActivity
 		optionsScene.attachChild(playButtonSprite);
 		optionsScene.attachChild(aboutButtonSprite);
 		mainScene = new Scene();
-		gameHUD = new HUD();
-		
 		/////////////////////////////////////////////
 		//adding auto parallax here
 		/////////////////////////////////////////////
 		this.mEngine.registerUpdateHandler(new FPSLogger());
-
 	//	final Scene scene = new Scene();
 		final AutoParallaxBackground autoParallaxBackground = new AutoParallaxBackground(0, 0, 0, 5);
-		final VertexBufferObjectManager vertexBufferObjectManager = this.getVertexBufferObjectManager();
+		//final VertexBufferObjectManager vertexBufferObjectManager = this.getVertexBufferObjectManager();
 		autoParallaxBackground.attachParallaxEntity(new ParallaxEntity(0.0f, new Sprite(0, CAMERA_HEIGHT - this.mParallaxLayerBack.getHeight(), this.mParallaxLayerBack, vertexBufferObjectManager)));
 		autoParallaxBackground.attachParallaxEntity(new ParallaxEntity(-5.0f, new Sprite(0, 80, this.mParallaxLayerMid, vertexBufferObjectManager)));
 		autoParallaxBackground.attachParallaxEntity(new ParallaxEntity(-10.0f, new Sprite(0, CAMERA_HEIGHT - this.mParallaxLayerFront.getHeight(), this.mParallaxLayerFront, vertexBufferObjectManager)));
 		
 
-		/* Calculate the coordinates for the face, so its centered on the camera. */
+		/* Calculate the coordinates for the player, so its centered on the camera. */
 		final float playerX = CAMERA_WIDTH/5;
-		final float playerY = CAMERA_HEIGHT - this.mPlayerTextureRegion.getHeight() - 5;
+		final float playerY = 0;//CAMERA_HEIGHT - this.mPlayerTextureRegion.getHeight() - 90;
 
 		/* Create two sprites and add it to the scene. */
 		final AnimatedSprite player = new AnimatedSprite(playerX, playerY, this.mPlayerTextureRegion, vertexBufferObjectManager);
-		player.setScaleCenterY(this.mPlayerTextureRegion.getHeight());
-		player.setScale(2);
+		final Body playerBody = PhysicsFactory.createBoxBody(this.mPhysicsWorld, player, BodyType.DynamicBody, FIXTURE_DEF);
+		//player.setScaleCenterY(this.mPlayerTextureRegion.getHeight());
+		//player.setScale(2);
 		player.animate(new long[]{100, 100, 100}, 3, 5, true);
-
+		
 	//	final AnimatedSprite enemy = new AnimatedSprite(playerX - 80, playerY, this.mEnemyTextureRegion, vertexBufferObjectManager);
 	//	enemy.setScaleCenterY(this.mEnemyTextureRegion.getHeight());
 	//	enemy.setScale(2);
@@ -389,13 +381,23 @@ public class SteroidTurtleActivity extends BaseGameActivity
 		mainScene.attachChild(consumeButtonSprite);
 		mainScene.attachChild(antidoteButtonSprite);
 		
+		final Rectangle ground = new Rectangle(0, CAMERA_HEIGHT - 85, CAMERA_WIDTH, 85, vertexBufferObjectManager);
+		final FixtureDef wallFixtureDef = PhysicsFactory.createFixtureDef(0, 0.5f, 0.5f);
+		
+		PhysicsFactory.createBoxBody(this.mPhysicsWorld, ground, BodyType.StaticBody, wallFixtureDef);
+		ground.setAlpha(new Float(0.0));
+		
+		this.mainScene.attachChild(ground);
+		this.mainScene.registerUpdateHandler(this.mPhysicsWorld);
+	
+		
 		//mainScene.attachChild(gameBackgroundSprite);
 		
 		mainScene.setBackground(autoParallaxBackground);
 		mainScene.attachChild(player);
-		//TODO blah blah camera set HUD
+		this.mPhysicsWorld.registerPhysicsConnector(new PhysicsConnector(player, playerBody, true, true));
 		
-	
+		
 	//	mainScene.attachChild(enemy);
 		optionsScene.registerTouchArea(playButtonSprite);
 		optionsScene.registerTouchArea(aboutButtonSprite);
@@ -403,9 +405,12 @@ public class SteroidTurtleActivity extends BaseGameActivity
 		
 	}
 	
+	
+	
 	// ===========================================================
 	// INITIALIZIE  
 	// ===========================================================
+	
 	
 	private void initSplashScene()
 	{
