@@ -7,6 +7,7 @@ package com.playtyme.streroidturtle;
 //import org.andengine.engine.Engine;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Random;
 
 import org.andengine.engine.camera.Camera;
 import org.andengine.engine.handler.timer.ITimerCallback;
@@ -34,6 +35,7 @@ import org.andengine.opengl.texture.atlas.bitmap.BitmapTextureAtlas;
 import org.andengine.opengl.texture.atlas.bitmap.BitmapTextureAtlasTextureRegionFactory;
 import org.andengine.opengl.texture.bitmap.BitmapTexture;
 import org.andengine.opengl.texture.region.ITextureRegion;
+import org.andengine.opengl.texture.region.ITiledTextureRegion;
 import org.andengine.opengl.texture.region.TextureRegionFactory;
 import org.andengine.opengl.texture.region.TiledTextureRegion;
 import org.andengine.opengl.util.GLState;
@@ -48,6 +50,9 @@ import android.widget.Toast;
 
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.physics.box2d.Body;
+import com.badlogic.gdx.physics.box2d.Contact;
+import com.badlogic.gdx.physics.box2d.ContactListener;
+import com.badlogic.gdx.physics.box2d.Fixture;
 import com.badlogic.gdx.physics.box2d.FixtureDef;
 import com.badlogic.gdx.physics.box2d.BodyDef.BodyType;
 
@@ -71,7 +76,7 @@ public class SteroidTurtleActivity extends BaseGameActivity
     private ITextureRegion moptionsMenu, mplayButton, maboutButton;
     private BitmapTextureAtlas mBitmapTextureAtlas;
 	private TiledTextureRegion mPlayerTextureRegion;
-	//private TiledTextureRegion mEnemyTextureRegion;
+	private TiledTextureRegion mEnemyTextureRegion;
 	private BitmapTextureAtlas mAutoParallaxBackgroundTexture;
 	private ITextureRegion mParallaxLayerBack;
 	private ITextureRegion mParallaxLayerMid;
@@ -81,7 +86,8 @@ public class SteroidTurtleActivity extends BaseGameActivity
 	private ITextureRegion consumeButtonImage;
 	private ITextureRegion antidoteButtonImage;
 	private PhysicsWorld mPhysicsWorld;
-	private static final FixtureDef FIXTURE_DEF = PhysicsFactory.createFixtureDef(1, 0.5f, 0.5f);
+	private int touchedGround;
+	private static final FixtureDef FIXTURE_DEF = PhysicsFactory.createFixtureDef(1, 0.0f, 0.0f);
 
 	//Method for generating Toast messages as they need to run on UI thread
 	
@@ -93,6 +99,47 @@ public class SteroidTurtleActivity extends BaseGameActivity
 	        }
 	    });
 	}
+	
+	private ContactListener createContactListener()
+	    {
+	        ContactListener contactListener = new ContactListener()
+	        {
+	            @Override
+	            public void beginContact(Contact contact)
+	            {
+	               // final Fixture x1 = contact.getFixtureA();
+	              //  final Fixture x2 = contact.getFixtureB();
+	                
+	                try {
+	                	touchedGround=1;
+						
+					} catch (Exception e) {
+						// TODO Auto-generated catch block
+						gameToast("Problem 1");
+						e.printStackTrace();
+					}
+	            }
+	 
+	            @Override
+	            public void endContact(Contact contact)
+	            {
+	            	touchedGround=0;
+	            }
+	 
+	            @Override
+	            public void preSolve(Contact contact, com.badlogic.gdx.physics.box2d.Manifold oldManifold)
+	            {
+	                   
+	            }
+	 
+	            @Override
+	            public void postSolve(Contact contact,com.badlogic.gdx.physics.box2d.ContactImpulse impulse)
+	            {
+	                   
+	            }
+	        };
+	        return contactListener;
+	    }
 
 	@Override
 	public EngineOptions onCreateEngineOptions() {
@@ -153,7 +200,7 @@ public class SteroidTurtleActivity extends BaseGameActivity
 	    		case MAIN:
 	    			mEngine.setScene(optionsScene);
 	    			currentScene = SceneType.OPTIONS;
-	    	//		gameHUD.detachSelf();//------------------>>>HUD DETACHED
+	    			//		gameHUD.detachSelf();//------------------>>>HUD DETACHED
 	    			break;
 	    	}
 	    }
@@ -162,7 +209,7 @@ public class SteroidTurtleActivity extends BaseGameActivity
 	
 	public void loadResources() 
 	{
-		// TODO Load resources
+		// Load resources
 		try {
 		    // 1 - Set up bitmap textures
 		    
@@ -229,7 +276,7 @@ public class SteroidTurtleActivity extends BaseGameActivity
 			
 			this.mBitmapTextureAtlas = new BitmapTextureAtlas(this.getTextureManager(), 256, 128, TextureOptions.BILINEAR);
 			this.mPlayerTextureRegion = BitmapTextureAtlasTextureRegionFactory.createTiledFromAsset(this.mBitmapTextureAtlas, this, "player.png", 0, 0, 3, 4);
-		//	this.mEnemyTextureRegion = BitmapTextureAtlasTextureRegionFactory.createTiledFromAsset(this.mBitmapTextureAtlas, this, "enemy.png", 73, 0, 3, 4);
+			this.mEnemyTextureRegion = BitmapTextureAtlasTextureRegionFactory.createTiledFromAsset(this.mBitmapTextureAtlas, this, "enemy.png", 73, 0, 3, 4);
 			this.mBitmapTextureAtlas.load();
 
 			this.mAutoParallaxBackgroundTexture = new BitmapTextureAtlas(this.getTextureManager(), 1024, 1024);
@@ -245,172 +292,190 @@ public class SteroidTurtleActivity extends BaseGameActivity
 	
 	private void loadScenes()
 	{
-		//PHYSICS WORLD
+		//Create Physics World
+		
 		VertexBufferObjectManager vertexBufferObjectManager= this.getVertexBufferObjectManager();
 		try {
-
-			this.mPhysicsWorld = new PhysicsWorld(new Vector2(0, SensorManager.GRAVITY_EARTH), false);
-			//final Vector2 gravity = Vector2Pool.obtain(0,10);
-			//this.mPhysicsWorld.setGravity(gravity);
+			this.mPhysicsWorld = new PhysicsWorld(new Vector2(0, 15), false);
+			mPhysicsWorld.setContactListener(createContactListener());
 			} catch (Exception e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
-			//gameToast("Exception thrown in load scenes");
-			
+			gameToast("Exception thrown in load scenes");
 		}
 		
-		// TODO Load Scenes
+		//Ground
+		
+		final Rectangle ground = new Rectangle(0, CAMERA_HEIGHT - 88, 3*CAMERA_WIDTH, 2, vertexBufferObjectManager);
+		final FixtureDef wallFixtureDef = PhysicsFactory.createFixtureDef(1, 0.0f, 0.0f);
+		PhysicsFactory.createBoxBody(this.mPhysicsWorld, ground, BodyType.StaticBody, wallFixtureDef);
+		ground.setUserData("ground");
+		//ground.setAlpha(new Float(0.0));
+		
+		//Scenes initialize and FPS Logger
+		
 		optionsScene = new Scene();
+		mainScene = new Scene();
+		this.mEngine.registerUpdateHandler(new FPSLogger());
+	
+		//Auto parallax background
+		
+		
+		final AutoParallaxBackground autoParallaxBackground = new AutoParallaxBackground(0, 0, 0, 5);
+		autoParallaxBackground.attachParallaxEntity(new ParallaxEntity(0.0f, new Sprite(0, CAMERA_HEIGHT - this.mParallaxLayerBack.getHeight(), this.mParallaxLayerBack, vertexBufferObjectManager)));
+		autoParallaxBackground.attachParallaxEntity(new ParallaxEntity(-5.0f, new Sprite(0, 80, this.mParallaxLayerMid, vertexBufferObjectManager)));
+		autoParallaxBackground.attachParallaxEntity(new ParallaxEntity(-10.0f, new Sprite(0, CAMERA_HEIGHT - this.mParallaxLayerFront.getHeight(), this.mParallaxLayerFront, vertexBufferObjectManager)));
+		mainScene.setBackground(autoParallaxBackground);
+
+		//creating animated sprites for enemies
+		
+		final float playerX = CAMERA_WIDTH/5;
+		final float playerY = 0;
+		final AnimatedSprite player = new AnimatedSprite(playerX, playerY, this.mPlayerTextureRegion, vertexBufferObjectManager);
+		final AnimatedSprite enemy1 = new AnimatedSprite(playerX + 480, playerY, this.mEnemyTextureRegion, vertexBufferObjectManager);
+		final AnimatedSprite enemy2 = new AnimatedSprite(playerX + 480, playerY, this.mEnemyTextureRegion, vertexBufferObjectManager);
+		final AnimatedSprite enemy3 = new AnimatedSprite(playerX + 480, playerY, this.mEnemyTextureRegion, vertexBufferObjectManager);
+		final AnimatedSprite enemy4 = new AnimatedSprite(playerX + 480, playerY, this.mEnemyTextureRegion, vertexBufferObjectManager);
+		
+		//bodies
+		
+		final Body playerBody = PhysicsFactory.createBoxBody(this.mPhysicsWorld, player, BodyType.DynamicBody, FIXTURE_DEF);
+		final Body enemyBody1 = PhysicsFactory.createBoxBody(this.mPhysicsWorld, enemy1, BodyType.DynamicBody, FIXTURE_DEF);
+		final Body enemyBody2 = PhysicsFactory.createBoxBody(this.mPhysicsWorld, enemy2, BodyType.DynamicBody, FIXTURE_DEF);
+		final Body enemyBody3 = PhysicsFactory.createBoxBody(this.mPhysicsWorld, enemy3, BodyType.DynamicBody, FIXTURE_DEF);
+		final Body enemyBody4 = PhysicsFactory.createBoxBody(this.mPhysicsWorld, enemy4, BodyType.DynamicBody, FIXTURE_DEF);
+		
+		//setting user data
+		
+		playerBody.setUserData("player");
+		enemyBody1.setUserData("enemy1");
+		enemyBody2.setUserData("enemy2");
+		enemyBody3.setUserData("enemy3");
+		enemyBody4.setUserData("enemy4");
+		
+		//animating sprites
+		
+		enemy1.animate(new long[]{200, 200, 200}, 3, 5, true);
+		enemy2.animate(new long[]{200, 200, 200}, 3, 5, true);
+		enemy3.animate(new long[]{200, 200, 200}, 3, 5, true);
+		enemy4.animate(new long[]{200, 200, 200}, 3, 5, true);
+		player.animate(new long[]{100, 100, 100}, 3, 5, true);
+		
+		//scaling
+		
+		//enemy.setScaleCenterY(this.mEnemyTextureRegion.getHeight());
+		//enemy.setScale(2);
+		//player.setScaleCenterY(this.mPlayerTextureRegion.getHeight());
+		//player.setScale(2);
+	
+		//reseting body positions
+		
+		relive(enemy1,enemyBody1);
+		relive(enemy2,enemyBody2);
+		relive(enemy3,enemyBody3);
+		relive(enemy4,enemyBody4);
+		
+		//simple sprite buttons
+		
 		Sprite optionsSprite = new Sprite(0, 0, this.moptionsMenu, getVertexBufferObjectManager());
+		
 		Sprite playButtonSprite = new Sprite(340, 120, this.mplayButton, getVertexBufferObjectManager()){
-			
-		      
 			@Override
 		      public boolean onAreaTouched(final TouchEvent pSceneTouchEvent, final float pTouchAreaLocalX, final float pTouchAreaLocalY) 
-		      {
+		      {	
 		    	  mEngine.setScene(mainScene);
 		    	  currentScene=SceneType.MAIN;
-		    //	  camera.setHUD(gameHUD);//-------------------->>>>> set HUD
-		    	
-		     //Insert Code Here
-	         return true;
+		     return true;
 		      }
 		};
-		Sprite jumpButtonSprite = new Sprite(360,235, this.jumpButtonImage, getVertexBufferObjectManager()){
-			
-		      
-			@Override
-		      public boolean onAreaTouched(final TouchEvent pSceneTouchEvent, final float pTouchAreaLocalX, final float pTouchAreaLocalY) 
-		      {
-		    	  //ADD JUMP FUNCTIONALITY !!!!!!!!!!
-				
-		    
-	         return true;
-		      }
-		};
+		
 		Sprite rollButtonSprite = new Sprite(0,235, this.rollButtonImage, getVertexBufferObjectManager()){
-			
-		      
 			@Override
 		      public boolean onAreaTouched(final TouchEvent pSceneTouchEvent, final float pTouchAreaLocalX, final float pTouchAreaLocalY) 
 		      {
 		    	  //ADD ROLL FUNCTIONALITY !!!!!!!!!!
-		    
-	         return true;
+		     return true;
 		      }
 		};
+		
 		Sprite consumeButtonSprite = new Sprite(120,235, this.consumeButtonImage, getVertexBufferObjectManager()){
-			
-		      
 			@Override
 		      public boolean onAreaTouched(final TouchEvent pSceneTouchEvent, final float pTouchAreaLocalX, final float pTouchAreaLocalY) 
 		      {
 		    	  //ADD CONSUME FUNCTIONALITY !!!!!!!!!!
-		    
-	         return true;
+		     return true;
 		      }
 		};
+		
 		Sprite antidoteButtonSprite = new Sprite(240,235, this.antidoteButtonImage, getVertexBufferObjectManager()){
-			
-		      
 			@Override
 		      public boolean onAreaTouched(final TouchEvent pSceneTouchEvent, final float pTouchAreaLocalX, final float pTouchAreaLocalY) 
 		      {
 		    	  //ADD antidote FUNCTIONALITY !!!!!!!!!!
-		    
-	         return true;
+		     return true;
 		      }
 		};
 		
-
-	
-	//===============================================
-	//	ADD ON TOUCH EVENT FOR PLAY AND ABOUT BUTTON 
-	//===============================================
-	
 		Sprite aboutButtonSprite = new Sprite(340, 180, this.maboutButton, getVertexBufferObjectManager()){
 			
 		      
 			@Override
 		      public boolean onAreaTouched(final TouchEvent pSceneTouchEvent, final float pTouchAreaLocalX, final float pTouchAreaLocalY) 
 		      {
-				String msg= "Developed By PlayTyme™";
-				gameToast(msg);
+				if(pSceneTouchEvent.isActionUp())
+				{
+				gameToast("Developed By PlayTyme™");
+				}
 	         return true;
 		      }
 		};
-	//	Sprite gameBackgroundSprite = new Sprite(0, 0, this.mgameBackground, getVertexBufferObjectManager());
+		Sprite jumpButtonSprite = new Sprite(360,235, this.jumpButtonImage, getVertexBufferObjectManager()){ //TODO JUMP 
+			@Override
+		      public boolean onAreaTouched(final TouchEvent pSceneTouchEvent, final float pTouchAreaLocalX, final float pTouchAreaLocalY) 
+		      {
+				if(pSceneTouchEvent.isActionUp()){
+				if (touchedGround==1)
+				{
+					playerBody.setLinearVelocity(0.0f,-8.0f);
+				}
+				}
+	         return true;
+		      }
+		};
 		
-		optionsScene.attachChild(optionsSprite);
-		optionsScene.attachChild(playButtonSprite);
-		optionsScene.attachChild(aboutButtonSprite);
-		mainScene = new Scene();
-		/////////////////////////////////////////////
-		//adding auto parallax here
-		/////////////////////////////////////////////
-		this.mEngine.registerUpdateHandler(new FPSLogger());
-	//	final Scene scene = new Scene();
-		final AutoParallaxBackground autoParallaxBackground = new AutoParallaxBackground(0, 0, 0, 5);
-		//final VertexBufferObjectManager vertexBufferObjectManager = this.getVertexBufferObjectManager();
-		autoParallaxBackground.attachParallaxEntity(new ParallaxEntity(0.0f, new Sprite(0, CAMERA_HEIGHT - this.mParallaxLayerBack.getHeight(), this.mParallaxLayerBack, vertexBufferObjectManager)));
-		autoParallaxBackground.attachParallaxEntity(new ParallaxEntity(-5.0f, new Sprite(0, 80, this.mParallaxLayerMid, vertexBufferObjectManager)));
-		autoParallaxBackground.attachParallaxEntity(new ParallaxEntity(-10.0f, new Sprite(0, CAMERA_HEIGHT - this.mParallaxLayerFront.getHeight(), this.mParallaxLayerFront, vertexBufferObjectManager)));
+		//update handler and physics connectors
 		
-
-		/* Calculate the coordinates for the player, so its centered on the camera. */
-		final float playerX = CAMERA_WIDTH/5;
-		final float playerY = 0;//CAMERA_HEIGHT - this.mPlayerTextureRegion.getHeight() - 90;
-
-		/* Create two sprites and add it to the scene. */
-		final AnimatedSprite player = new AnimatedSprite(playerX, playerY, this.mPlayerTextureRegion, vertexBufferObjectManager);
-		final Body playerBody = PhysicsFactory.createBoxBody(this.mPhysicsWorld, player, BodyType.DynamicBody, FIXTURE_DEF);
-		//player.setScaleCenterY(this.mPlayerTextureRegion.getHeight());
-		//player.setScale(2);
-		player.animate(new long[]{100, 100, 100}, 3, 5, true);
+		mainScene.registerUpdateHandler(this.mPhysicsWorld);
+		this.mPhysicsWorld.registerPhysicsConnector(new PhysicsConnector(player, playerBody, true, false));
+		this.mPhysicsWorld.registerPhysicsConnector(new PhysicsConnector(enemy1, enemyBody1, true, false));
+		this.mPhysicsWorld.registerPhysicsConnector(new PhysicsConnector(enemy2, enemyBody2, true, false));
+		this.mPhysicsWorld.registerPhysicsConnector(new PhysicsConnector(enemy3, enemyBody3, true, false));
+		this.mPhysicsWorld.registerPhysicsConnector(new PhysicsConnector(enemy4, enemyBody4, true, false));
 		
-	//	final AnimatedSprite enemy = new AnimatedSprite(playerX - 80, playerY, this.mEnemyTextureRegion, vertexBufferObjectManager);
-	//	enemy.setScaleCenterY(this.mEnemyTextureRegion.getHeight());
-	//	enemy.setScale(2);
-	//	enemy.animate(new long[]{200, 200, 200}, 3, 5, true);
-
+		//attaching childs
 		
-		
-		/////parallax end/////
 		mainScene.attachChild(rollButtonSprite);
 		mainScene.attachChild(jumpButtonSprite);
 		mainScene.attachChild(consumeButtonSprite);
 		mainScene.attachChild(antidoteButtonSprite);
-		
-		final Rectangle ground = new Rectangle(0, CAMERA_HEIGHT - 85, CAMERA_WIDTH, 85, vertexBufferObjectManager);
-		final FixtureDef wallFixtureDef = PhysicsFactory.createFixtureDef(0, 0.5f, 0.5f);
-		
-		PhysicsFactory.createBoxBody(this.mPhysicsWorld, ground, BodyType.StaticBody, wallFixtureDef);
-		ground.setAlpha(new Float(0.0));
-		
-		this.mainScene.attachChild(ground);
-		this.mainScene.registerUpdateHandler(this.mPhysicsWorld);
-	
-		
-		//mainScene.attachChild(gameBackgroundSprite);
-		
-		mainScene.setBackground(autoParallaxBackground);
+		mainScene.attachChild(ground);
 		mainScene.attachChild(player);
-		this.mPhysicsWorld.registerPhysicsConnector(new PhysicsConnector(player, playerBody, true, true));
+		mainScene.attachChild(enemy1);
+		mainScene.attachChild(enemy2);
+		mainScene.attachChild(enemy3);
+		mainScene.attachChild(enemy4);
+		optionsScene.attachChild(optionsSprite);
+		optionsScene.attachChild(playButtonSprite);
+		optionsScene.attachChild(aboutButtonSprite);
 		
+		//registering touch area
 		
-	//	mainScene.attachChild(enemy);
+		mainScene.registerTouchArea(jumpButtonSprite);
 		optionsScene.registerTouchArea(playButtonSprite);
 		optionsScene.registerTouchArea(aboutButtonSprite);
 		
-		
 	}
 	
-	
-	
-	// ===========================================================
-	// INITIALIZIE  
-	// ===========================================================
-	
+	//Splash Screen
 	
 	private void initSplashScene()
 	{
@@ -429,5 +494,16 @@ public class SteroidTurtleActivity extends BaseGameActivity
     	splash.setPosition((CAMERA_WIDTH - splash.getWidth()) * 0.5f, (CAMERA_HEIGHT - splash.getHeight()) * 0.5f);
     	splashScene.attachChild(splash);
 	}
+	
+	//Position reseting method
+	
+	public void relive(AnimatedSprite mAnimatedSprite,Body body)
+	{
+		//randomly change location behind screen
+		//body.setTransform((int)(960*(new Random().nextDouble()))+480, 0, 0);
+		mAnimatedSprite.setPosition((int)(960*(new Random().nextDouble()))+480, 0);
+		body.setLinearVelocity(-6, 0);
+	}
 }
+
 
